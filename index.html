@@ -137,7 +137,7 @@ async function sendMessage(){
   setBusy(true);
   try {
     // Short recent context reduces workload on the tablet.
-    const recentHistory = [history[0], ...history.slice(-8)];
+    const recentHistory = [history[0], ...history.slice(1).slice(-8)];
     const result = await engine.chat.completions.create({
       messages: recentHistory,
       temperature: 0.55,
