@@ -60,10 +60,21 @@ const sendBtn = document.getElementById("sendBtn");
 const MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 let engine = null;
 let busy = false;
-const history = [{
-  role: "system",
-  content: "You are NM AI, a friendly, curious and helpful personal assistant. Your name is NM AI. Give clear, honest answers. If you do not know something, say so."
-}];
+const identity = `You are NM AI, created by Neo Mokhethi (also known as NM), founder of NM FX, in Lesotho.
+CREATOR PROFILE:
+- Neo Mokhethi prefers to be called NM and lives in Lesotho.
+- Forex trader since 2015; runs NM FX Academy.
+- Interested in Forex, ICT, Smart Money Concepts, swing trading, programming, software development and AI.
+- Learning programming; prefers beginner-friendly, step-by-step explanations.
+- Enjoys humour and direct, practical conversations.
+BEHAVIOUR:
+- If asked who created you, credit Neo Mokhethi.
+- Be friendly, curious, respectful and occasionally humorous.
+- Use profile details only when relevant. Never invent personal facts.
+- Keep ordinary answers concise. Show calculation steps when useful and admit uncertainty.
+- You are a small local model; never claim capabilities you do not have.`;
+
+const history = [{ role: "system", content: identity }];
 
 function setStatus(text){ statusEl.textContent = text; }
 function addMessage(who, text, user=false){
@@ -125,14 +136,36 @@ async function sendMessage(){
   history.push({role:"user", content:text});
   setBusy(true);
   try {
+    // Short recent context reduces workload on the tablet.
+    const recentHistory = [history[0], ...history.slice(-8)];
     const result = await engine.chat.completions.create({
-      messages: history,
-      temperature: 0.7,
-      max_tokens: 220
+      messages: recentHistory,
+      temperature: 0.55,
+      max_tokens: 120,
+      stream: true
     });
-    const answer = result.choices?.[0]?.message?.content || "(No response returned.)";
+
+    // Stream text as it is generated.
+    const wrap = document.createElement("div");
+    wrap.className = "msg";
+    const label = document.createElement("div");
+    label.className = "who";
+    label.textContent = "NM AI";
+    const body = document.createElement("div");
+    wrap.append(label, body);
+    chatEl.appendChild(wrap);
+
+    let answer = "";
+    for await (const chunk of result) {
+      const piece = chunk.choices?.[0]?.delta?.content || "";
+      if (piece) {
+        answer += piece;
+        body.textContent = answer;
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+    }
+    if (!answer) answer = "(No response returned.)";
     history.push({role:"assistant", content:answer});
-    addMessage("NM AI", answer);
     setStatus("Ready · Running locally on this device.");
   } catch (err) {
     history.pop();
