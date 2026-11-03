@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NM AI — First Brain</title>
+<style>
+:root{--gold:#d4af37;--bg:#090909;--panel:#171717;--line:#343434}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#f5f5f5;font:16px Arial,sans-serif}
+header{padding:18px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.logo{font-size:25px;font-weight:800;color:var(--gold)}
+.sub{font-size:12px;color:#aaa;margin-top:3px}
+main{max-width:760px;margin:auto;padding:16px}
+.status{background:#211d12;border:1px solid #5b4a20;color:#f1d98b;padding:12px;border-radius:10px;line-height:1.45}
+.controls{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+button{border:0;border-radius:9px;padding:12px 15px;font-weight:700;background:var(--gold);color:#15110a}
+button:disabled{opacity:.45}
+#chat{height:48vh;min-height:260px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:14px 0}
+.msg{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border-radius:10px;margin:9px 0;line-height:1.5;background:#252525}
+.msg.user{background:#3a2e12}
+.who{font-size:12px;color:var(--gold);font-weight:bold;margin-bottom:5px}
+.composer{display:flex;gap:8px}
+input{min-width:0;flex:1;padding:13px;border-radius:9px;border:1px solid #555;background:#171717;color:white;font-size:16px}
+.note{font-size:12px;color:#aaa;line-height:1.5;margin-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <div style="font-size:32px">💀</div>
+  <div><div class="logo">NM AI</div><div class="sub">FIRST BRAIN · LOCAL MODEL EXPERIMENT</div></div>
+</header>
+<main>
+  <div id="status" class="status">Ready. Connect to Wi-Fi, then load the AI brain.</div>
+  <div class="controls">
+    <button id="loadBtn">LOAD AI BRAIN</button>
+    <button id="clearBtn" disabled>CLEAR CHAT</button>
+  </div>
+  <div id="chat" aria-live="polite">
+    <div class="msg"><div class="who">NM AI</div>Hello! I'm the first NM AI experiment. Load my model to begin chatting.</div>
+  </div>
+  <div class="composer">
+    <input id="prompt" placeholder="Message NM AI..." autocomplete="off" disabled>
+    <button id="sendBtn" disabled>SEND</button>
+  </div>
+  <p class="note">
+    First launch requires internet to download the model and runtime. After successful download, the browser may cache the model for offline use.
+    Keep this page open while loading. A 4 GB tablet may run out of memory; close other apps first.
+    This is an experimental small model, not as capable as a large cloud assistant.
+  </p>
+</main>
+<script type="module">
+const statusEl = document.getElementById("status");
+const chatEl = document.getElementById("chat");
+const loadBtn = document.getElementById("loadBtn");
+const clearBtn = document.getElementById("clearBtn");
+const promptEl = document.getElementById("prompt");
+const sendBtn = document.getElementById("sendBtn");
+
+const MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+let engine = null;
+let busy = false;
+const identity = `You are NM AI, created by Neo Mokhethi (also known as NM), founder of NM FX, in Lesotho.
+CREATOR PROFILE:
+- Neo Mokhethi prefers to be called NM and lives in Lesotho.
+- Forex trader since 2015; runs NM FX Academy.
+- Interested in Forex, ICT, Smart Money Concepts, swing trading, programming, software development and AI.
+- Learning programming; prefers beginner-friendly, step-by-step explanations.
+- Enjoys humour and direct, practical conversations.
+BEHAVIOUR:
+- If asked who created you, credit Neo Mokhethi.
+- Be friendly, curious, respectful and occasionally humorous.
+- Use profile details only when relevant. Never invent personal facts.
+- Keep ordinary answers concise. Show calculation steps when useful and admit uncertainty.
+- You are a small local model; never claim capabilities you do not have.`;
+
+const history = [{ role: "system", content: identity }];
+
+function setStatus(text){ statusEl.textContent = text; }
+function addMessage(who, text, user=false){
+  const wrap = document.createElement("div");
+  wrap.className = "msg" + (user ? " user" : "");
+  const label = document.createElement("div");
+  label.className = "who";
+  label.textContent = who;
+  const body = document.createElement("div");
+  body.textContent = text;
+  wrap.append(label, body);
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function setBusy(value){
+  busy = value;
+  sendBtn.disabled = value || !engine;
+  promptEl.disabled = value || !engine;
+  loadBtn.disabled = value || !!engine;
+}
+loadBtn.addEventListener("click", async () => {
+  if (engine || busy) return;
+  if (!window.isSecureContext) {
+    setStatus("This page is not in a secure context. Open it from an HTTPS website/host, not directly as a file:// page.");
+    return;
+  }
+  if (!navigator.gpu) {
+    setStatus("WebGPU is not available in this browser page. Try an updated Chrome/Samsung Internet browser. The earlier W3Schools test may have run in a different preview context.");
+    return;
+  }
+  setBusy(true);
+  try {
+    setStatus("Connecting to WebLLM and preparing the model. Keep this page open...");
+    const { CreateMLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
+    engine = await CreateMLCEngine(MODEL_ID, {
+      initProgressCallback: (report) => {
+        if (report && report.text) setStatus(report.text);
+      }
+    });
+    setStatus("NM AI is ready. You can now chat.");
+    promptEl.disabled = false;
+    sendBtn.disabled = false;
+    clearBtn.disabled = false;
+    addMessage("NM AI", "My model is loaded. Let's talk!");
+    promptEl.focus();
+  } catch (err) {
+    engine = null;
+    setStatus("Could not load the model: " + (err?.message || String(err)) + ". Check internet, browser support and available memory, then try again.");
+    loadBtn.disabled = false;
+  } finally {
+    busy = false;
+  }
+});
+async function sendMessage(){
+  const text = promptEl.value.trim();
+  if (!text || !engine || busy) return;
+  promptEl.value = "";
+  addMessage("YOU", text, true);
+  history.push({role:"user", content:text});
+  setBusy(true);
+  try {
+    // Short recent context reduces workload on the tablet.
+    const recentHistory = [history[0], ...history.slice(1).slice(-8)];
+    const result = await engine.chat.completions.create({
+      messages: recentHistory,
+      temperature: 0.55,
+      max_tokens: 120,
+      stream: true
+    });
+
+    // Stream text as it is generated.
+    const wrap = document.createElement("div");
+    wrap.className = "msg";
+    const label = document.createElement("div");
+    label.className = "who";
+    label.textContent = "NM AI";
+    const body = document.createElement("div");
+    wrap.append(label, body);
+    chatEl.appendChild(wrap);
+
+    let answer = "";
+    for await (const chunk of result) {
+      const piece = chunk.choices?.[0]?.delta?.content || "";
+      if (piece) {
+        answer += piece;
+        body.textContent = answer;
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+    }
+    if (!answer) answer = "(No response returned.)";
+    history.push({role:"assistant", content:answer});
+    setStatus("Ready · Running locally on this device.");
+  } catch (err) {
+    history.pop();
+    addMessage("NM AI", "I hit an error: " + (err?.message || String(err)));
+    setStatus("Response error. Try a shorter message or reload the page.");
+  } finally {
+    setBusy(false);
+    promptEl.focus();
+  }
+}
+sendBtn.addEventListener("click", sendMessage);
+promptEl.addEventListener("keydown", e => { if(e.key === "Enter") sendMessage(); });
+clearBtn.addEventListener("click", () => {
+  history.splice(1);
+  chatEl.replaceChildren();
+  addMessage("NM AI", "Chat cleared. What would you like to discuss?");
+});
+</script>
+</body>
+</html>
